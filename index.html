@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的相片日誌 (雲端版)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a; --bg-panel: rgba(30, 41, 59, 0.7);
+            --text-primary: #f8fafc; --text-secondary: #94a3b8;
+            --accent: #3b82f6; --accent-hover: #2563eb;
+            --danger: #ef4444; --success: #10b981;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow-x: hidden; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark); color: var(--text-primary);
+            line-height: 1.6; min-height: 100vh;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .app-container { max-width: 800px; margin: 0 auto; padding: 10px; min-height: 100vh; }
+
+        .glass-header, .glass-panel, .entry-card {
+            background: var(--bg-panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: var(--glass-shadow);
+        }
+
+        .glass-header {
+            position: sticky; top: 10px; z-index: 100; padding: 12px 15px; margin-bottom: 20px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+
+        .header-main {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;
+        }
+
+        h1 {
+            font-size: 1.3rem; font-weight: 800;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            white-space: nowrap;
+        }
+
+        .search-bar { flex: 1; max-width: 320px; }
+        .search-bar input {
+            width: 100%; padding: 10px 15px; border-radius: 20px;
+            border: 1px solid var(--glass-border); background: rgba(15, 23, 42, 0.6);
+            color: white; font-size: 0.9rem; outline: none; transition: all 0.3s ease;
+        }
+        .search-bar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+
+        .search-tags-container {
+            width: 100%; display: flex; gap: 6px; overflow-x: auto;
+            padding: 2px 0 4px 0; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+        }
+        .search-tags-container::-webkit-scrollbar { display: none; }
+        .search-tag-chip {
+            background: rgba(15, 23, 42, 0.6); color: var(--text-secondary);
+            border: 1px solid var(--glass-border); padding: 5px 12px; border-radius: 16px;
+            font-size: 0.8rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+            user-select: none; transition: all 0.2s ease;
+        }
+        .search-tag-chip:hover { color: var(--text-primary); border-color: rgba(96, 165, 250, 0.4); background: rgba(59, 130, 246, 0.15); }
+        .search-tag-chip.active {
+            background: var(--accent); color: #ffffff; border-color: #60a5fa; font-weight: 600;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        }
+        .search-tag-chip.all-chip { font-weight: 600; }
+
+        .creation-section { padding: 15px; margin-bottom: 25px; animation: fadeInDown 0.6s ease; }
+        .creation-section h2 { font-size: 1.1rem; margin-bottom: 15px; color: var(--text-primary); }
+        .input-group { margin-bottom: 12px; }
+
+        textarea, input[type="text"]#tagsInput {
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--glass-border);
+            background: rgba(15, 23, 42, 0.6); color: white; font-family: inherit; font-size: 1rem;
+            outline: none; resize: vertical; transition: all 0.3s ease;
+        }
+        textarea:focus, input[type="text"]#tagsInput:focus { border-color: var(--accent); }
+
+        .file-input-group { display: flex; flex-direction: column; gap: 8px; }
+        .file-label {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 12px; border: 2px dashed rgba(148, 163, 184, 0.4); border-radius: 10px;
+            cursor: pointer; transition: all 0.3s ease; background: rgba(15, 23, 42, 0.4);
+        }
+        .file-label:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
+        .upload-icon { font-size: 1.3rem; }
+        #photoPreview { max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 8px; margin-top: 10px; border: 1px solid var(--glass-border); }
+        .hidden { display: none !important; }
+
+        .form-actions { display: flex; gap: 10px; }
+        .btn-primary {
+            flex: 1; padding: 12px; background: var(--success); color: white;
+            border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        .btn-cancel {
+            padding: 12px; background: rgba(239, 68, 68, 0.2); color: #fca5a5;
+            border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        }
+        .btn-cancel:hover { background: rgba(239, 68, 68, 0.4); }
+
+        .btn-remove-photo {
+            align-self: flex-start; padding: 6px 12px; background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;
+            font-size: 0.85rem; cursor: pointer; transition: all 0.2s ease;
+        }
+        .btn-remove-photo:hover { background: rgba(239, 68, 68, 0.4); }
+
+        .saved-tags-title { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px; }
+        .saved-tags-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .saved-tag { 
+            background: rgba(148, 163, 184, 0.15); color: #cbd5e1; padding: 6px 14px; 
+            border-radius: 20px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+            user-select: none; border: 1px solid transparent;
+        }
+        .saved-tag:hover { background: rgba(59, 130, 246, 0.2); color: white; }
+        .saved-tag.active { background: var(--accent); color: white; border-color: #60a5fa; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3); }
+
+        .entries-grid { display: flex; flex-direction: column; gap: 20px; }
+        .entry-card { overflow: hidden; animation: fadeInUp 0.5s ease backwards; transition: transform 0.3s ease; }
+        .entry-photo { width: 100%; max-height: 350px; object-fit: cover; background-color: #000; display: block; }
+        .entry-content { padding: 15px; }
+        .entry-text { font-size: 1rem; margin-bottom: 12px; white-space: pre-wrap; }
+        .entry-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .tag { background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .tag:hover { background: rgba(59, 130, 246, 0.4); color: white; }
+        .entry-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; border-top: 1px solid var(--glass-border); padding-top: 12px; }
+        .timestamp { color: var(--text-secondary); }
+        .action-buttons { display: flex; gap: 8px; }
+        
+        .edit-btn, .delete-btn { background: none; border: none; cursor: pointer; padding: 5px 10px; border-radius: 5px; transition: all 0.2s; font-size: 0.85rem; }
+        .edit-btn { color: #60a5fa; }
+        .edit-btn:hover { background: rgba(96, 165, 250, 0.2); }
+        .delete-btn { color: var(--danger); }
+        .delete-btn:hover { background: rgba(239, 68, 68, 0.2); }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 600px) {
+            .header-main { flex-direction: column; align-items: stretch; }
+            .header-title-row { justify-content: space-between; }
+            .search-bar { max-width: 100%; }
+            h1 { text-align: left; margin-bottom: 0; }
+        }
+
+        .header-title-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-icon {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-icon:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent);
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            user-select: none;
+            border: 1px solid transparent;
+        }
+        .status-badge.connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+        .modal-card {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            padding: 24px;
+            animation: fadeInDown 0.3s ease;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .modal-header h3 {
+            font-size: 1.15rem;
+            color: #f8fafc;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.3rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            line-height: 1;
+        }
+        .close-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .modal-body { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+        .modal-body label { font-size: 0.85rem; color: #cbd5e1; font-weight: 600; margin-bottom: 4px; display: block; }
+        .modal-body input[type="text"], .modal-body input[type="password"] {
+            width: 100%; padding: 10px 12px; border-radius: 8px;
+            border: 1px solid var(--glass-border); background: rgba(15, 23, 42, 0.7);
+            color: white; font-size: 0.9rem; outline: none; transition: border-color 0.2s;
+        }
+        .modal-body input:focus { border-color: var(--accent); }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-secondary {
+            padding: 10px 16px; background: rgba(148, 163, 184, 0.2);
+            color: #cbd5e1; border: 1px solid var(--glass-border); border-radius: 8px;
+            font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(148, 163, 184, 0.3); color: white; }
+        .token-help {
+            background: rgba(15, 23, 42, 0.5); border-radius: 8px; padding: 12px;
+            font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; border: 1px dashed rgba(148, 163, 184, 0.3);
+        }
+        .token-help summary { cursor: pointer; color: #93c5fd; font-weight: 600; outline: none; }
+        .token-help ol { margin-left: 20px; margin-top: 8px; }
+        .status-msg { font-size: 0.85rem; padding: 10px; border-radius: 8px; display: none; }
+        .status-msg.success { display: block; background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .status-msg.error { display: block; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+        #loadingOverlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.9); z-index: 1000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; font-size: 1.2rem;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText">正在與雲端同步...</div>
+    </div>
+
+    <div class="app-container">
+        <header class="glass-header">
+            <div class="header-main">
+                <div class="header-title-row">
+                    <h1>相片日誌 ☁️</h1>
+                    <span id="ghStatusBadge" class="status-badge" title="點擊設定 GitHub 連線">⚙️ 訪客模式 (點此設定)</span>
+                    <button type="button" id="settingsBtn" class="btn-icon" title="GitHub 連線設定">⚙️</button>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="🔍 搜尋文字或標籤...">
+                </div>
+            </div>
+            <div id="searchTagsContainer" class="search-tags-container hidden"></div>
+        </header>
+
+        <main>
+            <section class="creation-section glass-panel">
+                <h2 id="formTitle">新增紀錄</h2>
+                <form id="entryForm">
+                    <div class="input-group file-input-group">
+                        <label for="photoInput" class="file-label">
+                            <span class="upload-icon">📷</span>
+                            <span id="fileName">點選上傳照片 (點擊可更換)</span>
+                        </label>
+                        <input type="file" id="photoInput" accept="image/*" hidden>
+                        <img id="photoPreview" class="hidden" alt="預覽照片">
+                        <button type="button" id="removePhotoBtn" class="btn-remove-photo hidden">✕ 移除相片</button>
+                    </div>
+                    
+                    <div class="input-group">
+                        <textarea id="textInput" placeholder="這張照片的故事是..." rows="3" required></textarea>
+                    </div>
+
+                    <div class="input-group">
+                        <div id="savedTagsArea" class="hidden">
+                            <div class="saved-tags-title">歷史標籤 (雲端同步)</div>
+                            <div id="savedTagsList" class="saved-tags-list"></div>
+                        </div>
+                        <input type="text" id="tagsInput" placeholder="輸入標籤 (用逗號分隔，如：美食, 旅遊)">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" id="submitBtn" class="btn-primary">儲存同步至雲端</button>
+                        <button type="button" id="cancelBtn" class="btn-cancel hidden">取消編輯</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="entries-section">
+                <div id="entriesFeed" class="entries-grid"></div>
+            </section>
+        </main>
+
+        <!-- GitHub 連線設定彈跳視窗 -->
+        <div id="settingsModal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>⚙️ GitHub 雲端設定</h3>
+                    <button type="button" id="closeSettingsBtn" class="close-btn" title="關閉">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div>
+                        <label for="ghOwner">GitHub 帳號 (Username / Owner)</label>
+                        <input type="text" id="ghOwner" placeholder="例如：your-username">
+                    </div>
+                    <div>
+                        <label for="ghRepo">倉庫名稱 (Repository Name)</label>
+                        <input type="text" id="ghRepo" placeholder="例如：photo-journal">
+                    </div>
+                    <div>
+                        <label for="ghBranch">分支名稱 (預設 main)</label>
+                        <input type="text" id="ghBranch" value="main" placeholder="main">
+                    </div>
+                    <div>
+                        <label for="ghToken">Personal Access Token (PAT 金鑰，新增/修改時必填)</label>
+                        <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx 或 github_pat_xxxx">
+                    </div>
+                    <div id="modalStatusMsg" class="status-msg"></div>
+                    <details class="token-help">
+                        <summary>❓ 如何取得 GitHub Token (PAT)？</summary>
+                        <ol>
+                            <li>登入 GitHub ➔ 點右上角頭像 ➔ <b>Settings</b></li>
+                            <li>左側滾到底部點 <b>Developer settings</b> ➔ <b>Personal access tokens</b> ➔ <b>Tokens (classic)</b></li>
+                            <li>點 <b>Generate new token (classic)</b></li>
+                            <li>Note 填寫 <code>photo-journal</code>，勾選 <b>repo</b>（完整倉庫權限）</li>
+                            <li>點最下方綠色按鈕 Generate token，複製金鑰貼至此處。<br><i>（金鑰僅保存在本機瀏覽器，絕不上傳他人伺服器）</i></li>
+                        </ol>
+                    </details>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="testConnBtn" class="btn-secondary">測試連線</button>
+                    <button type="button" id="saveSettingsBtn" class="btn-primary" style="padding: 10px 20px;">儲存設定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub API & Application Script -->
+    <script>
+        const STORAGE_KEY = 'photo_journal_gh_config';
+
+        let editingId = null;
+        let photoChanged = false;
+        let entriesDataCache = [];
+        let allKnownTags = new Set();
+        let currentPhotoDataUrl = null;
+        let isUploading = false;
+        let currentDataSha = null;
+        let lastRenderedTagsStr = '';
+
+        const form = document.getElementById('entryForm');
+        const photoInput = document.getElementById('photoInput');
+        const photoPreview = document.getElementById('photoPreview');
+        const removePhotoBtn = document.getElementById('removePhotoBtn');
+        const fileNameDisplay = document.getElementById('fileName');
+        const searchInput = document.getElementById('searchInput');
+        const searchTagsContainer = document.getElementById('searchTagsContainer');
+        const tagsInput = document.getElementById('tagsInput');
+        const textInput = document.getElementById('textInput');
+        const savedTagsArea = document.getElementById('savedTagsArea');
+        const savedTagsList = document.getElementById('savedTagsList');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        // Modal 元素
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const ghStatusBadge = document.getElementById('ghStatusBadge');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const testConnBtn = document.getElementById('testConnBtn');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const ghOwnerInput = document.getElementById('ghOwner');
+        const ghRepoInput = document.getElementById('ghRepo');
+        const ghBranchInput = document.getElementById('ghBranch');
+        const ghTokenInput = document.getElementById('ghToken');
+        const modalStatusMsg = document.getElementById('modalStatusMsg');
+
+        // ==== GitHub 設定管理 ====
+        function getGitHubConfig() {
+            let cfg = { owner: '', repo: '', branch: 'main', token: '' };
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    cfg = Object.assign(cfg, JSON.parse(stored));
+                }
+            } catch(e) {}
+            
+            // 若未手動填寫 owner / repo，嘗試從當前網址 (GitHub Pages) 自動推斷
+            if (!cfg.owner && window.location.hostname.endsWith('.github.io')) {
+                cfg.owner = window.location.hostname.replace('.github.io', '');
+                const pathParts = window.location.pathname.split('/').filter(Boolean);
+                if (pathParts.length > 0) {
+                    cfg.repo = pathParts[0];
+                }
+            }
+            return cfg;
+        }
+
+        function saveGitHubConfig(newCfg) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newCfg));
+            updateStatusBadge();
+        }
+
+        function updateStatusBadge() {
+            if (!ghStatusBadge) return;
+            const cfg = getGitHubConfig();
+            if (cfg.token && cfg.owner && cfg.repo) {
+                ghStatusBadge.className = 'status-badge connected';
+                ghStatusBadge.textContent = `✅ 已連線 (${cfg.owner}/${cfg.repo})`;
+                ghStatusBadge.title = 'GitHub API 連線就緒 (點擊修改設定)';
+            } else if (cfg.owner && cfg.repo) {
+                ghStatusBadge.className = 'status-badge';
+                ghStatusBadge.textContent = `👀 唯讀模式 (點此登入)`;
+                ghStatusBadge.title = '已綁定儲存庫，但尚未設定 Token，僅能瀏覽 (點擊設定)';
+            } else {
+                ghStatusBadge.className = 'status-badge';
+                ghStatusBadge.textContent = `⚙️ 訪客模式 (點此設定)`;
+                ghStatusBadge.title = '尚未設定 GitHub 儲存庫與 Token (點擊設定)';
+            }
+        }
+
+        // ==== UTF-8 與 Base64 工具 (完整支援繁體中文字元) ====
+        function utf8ToBase64(str) {
+            const bytes = new TextEncoder().encode(str);
+            let binary = '';
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        function base64ToUtf8(base64) {
+            const binary = window.atob(base64.replace(/\s/g, ''));
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return new TextDecoder().decode(bytes);
+        }
+
+        // ==== GitHub API 封裝呼叫 ====
+        async function githubRequest(endpoint, options = {}) {
+            const cfg = getGitHubConfig();
+            const url = endpoint.startsWith('http') ? endpoint : `https://api.github.com${endpoint}`;
+            const headers = {
+                'Accept': 'application/vnd.github.v3+json',
+                ...(options.headers || {})
+            };
+            if (cfg.token) {
+                headers['Authorization'] = `Bearer ${cfg.token}`;
+            }
+            return await fetch(url, { ...options, headers });
+        }
+
+        // ==== 從 GitHub 載入資料 ====
+        async function loadEntries() {
+            const overlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            overlay.style.display = 'flex';
+            loadingText.textContent = '正在與雲端同步...';
+            
+            const cfg = getGitHubConfig();
+            let loadedData = null;
+
+            // 1. 若有 Token 與儲存庫設定，優先透過 GitHub API 取得最新內容與 sha (零延遲)
+            if (cfg.token && cfg.owner && cfg.repo) {
+                try {
+                    const apiRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(cfg.branch || 'main')}`);
+                    if (apiRes.ok) {
+                        const fileInfo = await apiRes.json();
+                        currentDataSha = fileInfo.sha;
+                        const jsonText = base64ToUtf8(fileInfo.content);
+                        loadedData = JSON.parse(jsonText);
+                    } else if (apiRes.status === 404) {
+                        currentDataSha = null;
+                        loadedData = [];
+                    }
+                } catch(err) {
+                    console.warn('GitHub API 載入失敗，轉為嘗試本地/靜態 data.json:', err);
+                }
+            }
+
+            // 2. 若 API 未取得，fallback 到直接讀取靜態 data.json (不耗費 API Rate Limit)
+            if (!loadedData) {
+                try {
+                    const res = await fetch('data.json?t=' + Date.now());
+                    if (res.ok) {
+                        loadedData = await res.json();
+                    }
+                } catch(err) {
+                    console.warn('靜態 data.json 讀取失敗:', err);
+                }
+            }
+
+            overlay.style.display = 'none';
+
+            if (Array.isArray(loadedData)) {
+                entriesDataCache = loadedData;
+            } else {
+                entriesDataCache = [];
+            }
+            renderEntries(searchInput.value);
+            updateStatusBadge();
+        }
+
+        function getTagsArray(str) {
+            return str.split(',').map(t => t.trim()).filter(t => t.length > 0);
+        }
+
+        function updateSavedTagsUI() {
+            if (allKnownTags.size === 0) {
+                savedTagsArea.classList.add('hidden');
+                return;
+            }
+            savedTagsArea.classList.remove('hidden');
+            savedTagsList.innerHTML = '';
+            
+            const currentTags = getTagsArray(tagsInput.value);
+            Array.from(allKnownTags).sort().forEach(tag => {
+                const el = document.createElement('div');
+                el.className = 'saved-tag';
+                if (currentTags.includes(tag)) el.classList.add('active');
+                el.textContent = '#' + tag;
+                
+                el.addEventListener('click', () => {
+                    let tagsArr = getTagsArray(tagsInput.value);
+                    if (tagsArr.includes(tag)) {
+                        tagsArr = tagsArr.filter(t => t !== tag);
+                        el.classList.remove('active');
+                    } else {
+                        tagsArr.push(tag);
+                        el.classList.add('active');
+                    }
+                    tagsInput.value = tagsArr.join(', ');
+                });
+                savedTagsList.appendChild(el);
+            });
+        }
+
+        tagsInput.addEventListener('input', () => updateSavedTagsUI());
+
+        function applySearchTag(tag) {
+            const current = searchInput.value.trim().toLowerCase().replace(/^#/, '');
+            const target = (tag || '').trim().toLowerCase().replace(/^#/, '');
+            
+            if (!tag || current === target) {
+                searchInput.value = '';
+            } else {
+                searchInput.value = tag;
+            }
+            renderEntries(searchInput.value);
+            updateTopSearchTagsActiveState();
+        }
+
+        function updateTopSearchTagsActiveState() {
+            const current = searchInput.value.trim().toLowerCase().replace(/^#/, '');
+            const chips = document.querySelectorAll('.search-tag-chip');
+            chips.forEach(chip => {
+                const chipTag = (chip.getAttribute('data-tag') || '').toLowerCase().replace(/^#/, '');
+                if (!chipTag) {
+                    if (!current) chip.classList.add('active');
+                    else chip.classList.remove('active');
+                } else {
+                    if (current && (current === chipTag || chipTag.includes(current))) {
+                        chip.classList.add('active');
+                    } else {
+                        chip.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        function renderTopSearchTags() {
+            if (!searchTagsContainer) return;
+            if (allKnownTags.size === 0) {
+                searchTagsContainer.classList.add('hidden');
+                return;
+            }
+            searchTagsContainer.classList.remove('hidden');
+            searchTagsContainer.innerHTML = '';
+
+            const allBtn = document.createElement('button');
+            allBtn.type = 'button';
+            allBtn.className = 'search-tag-chip all-chip';
+            allBtn.textContent = '全部';
+            allBtn.addEventListener('click', () => applySearchTag(''));
+            searchTagsContainer.appendChild(allBtn);
+
+            Array.from(allKnownTags).sort((a, b) => a.localeCompare(b, 'zh-TW')).forEach(tag => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'search-tag-chip';
+                chip.setAttribute('data-tag', tag);
+                chip.textContent = '#' + tag;
+                chip.addEventListener('click', () => applySearchTag(tag));
+                searchTagsContainer.appendChild(chip);
+            });
+
+            updateTopSearchTagsActiveState();
+        }
+
+        function updateTopSearchTagsUI() {
+            const currentTagsStr = Array.from(allKnownTags).sort().join('|');
+            if (currentTagsStr !== lastRenderedTagsStr) {
+                lastRenderedTagsStr = currentTagsStr;
+                renderTopSearchTags();
+            } else {
+                updateTopSearchTagsActiveState();
+            }
+        }
+
+        function renderEntries(searchTerm = '') {
+            const feed = document.getElementById('entriesFeed');
+            feed.innerHTML = '';
+            let entries = [...entriesDataCache];
+            const cfg = getGitHubConfig();
+            
+            allKnownTags.clear();
+            entries.forEach(e => {
+                if (e.tags) e.tags.forEach(t => allKnownTags.add(t));
+            });
+            updateSavedTagsUI();
+            updateTopSearchTagsUI();
+            
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase().replace(/^#/, '').trim();
+                entries = entries.filter(entry => 
+                    (entry.text && entry.text.toLowerCase().includes(term)) || 
+                    (entry.tags && entry.tags.some(tag => tag.toLowerCase().replace(/^#/, '').includes(term)))
+                );
+            }
+            
+            if (entries.length === 0) {
+                feed.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 30px;">雲端目前沒有紀錄。</p>';
+                return;
+            }
+
+            entries.forEach(entry => {
+                const card = document.createElement('div');
+                card.className = 'entry-card';
+                card.id = `entry-${entry.id}`;
+                
+                let dateStr = '剛剛';
+                if (entry.createdAt) {
+                    dateStr = new Date(entry.createdAt).toLocaleString('zh-TW', {
+                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                } else if (entry.timestamp) { 
+                    dateStr = new Date(entry.timestamp).toLocaleString('zh-TW');
+                }
+                
+                const tagsArr = entry.tags || [];
+                const tagsHtml = tagsArr.map(tag => `<span class="tag">#${tag}</span>`).join('');
+                
+                // 圖片路徑與 Fallback 機制
+                let photoHtml = '';
+                if (entry.photoUrl) {
+                    let rawFallback = '';
+                    if (cfg.owner && cfg.repo) {
+                        rawFallback = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch || 'main'}/${entry.photoUrl}`;
+                    }
+                    photoHtml = `<img src="${entry.photoUrl}" class="entry-photo" alt="紀錄" onerror="if(this.src!=='${rawFallback}'&&'${rawFallback}'){this.src='${rawFallback}';}else{this.style.display='none';}">`;
+                }
+                
+                card.innerHTML = `
+                    ${photoHtml}
+                    <div class="entry-content">
+                        <div class="entry-text">${escapeHtml(entry.text || '')}</div>
+                        ${tagsHtml ? `<div class="entry-tags">${tagsHtml}</div>` : ''}
+                        <div class="entry-footer">
+                            <span class="timestamp">${dateStr}</span>
+                            <div class="action-buttons">
+                                <button class="edit-btn" data-id="${entry.id}">✏️ 編輯</button>
+                                <button class="delete-btn" data-id="${entry.id}">🗑️ 刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+            
+            // 刪除按鈕事件
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const cfg = getGitHubConfig();
+
+                    if (!cfg.token || !cfg.owner || !cfg.repo) {
+                        alert('請先點擊右上角 ⚙️ 設定 GitHub Token (PAT)，才能刪除紀錄！');
+                        openSettingsModal();
+                        return;
+                    }
+
+                    if (confirm('確定要從 GitHub 雲端刪除這筆紀錄嗎？所有人將無法再看到。')) {
+                        const loadingOverlay = document.getElementById('loadingOverlay');
+                        const loadingText = document.getElementById('loadingText');
+                        loadingOverlay.style.display = 'flex';
+                        loadingText.textContent = '正在自 GitHub 刪除紀錄...';
+
+                        try {
+                            if (editingId && String(editingId) === String(id)) resetForm();
+                            const branch = cfg.branch || 'main';
+
+                            // 1. 取得最新 data.json
+                            const getRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(branch)}`);
+                            if (!getRes.ok) {
+                                throw new Error('無法取得雲端 data.json (HTTP ' + getRes.status + ')');
+                            }
+                            const fileData = await getRes.json();
+                            let entries = JSON.parse(base64ToUtf8(fileData.content));
+                            
+                            // 2. 清理實體圖片 (若有)
+                            const targetEntry = entries.find(x => String(x.id) === String(id));
+                            if (targetEntry && targetEntry.photoUrl && targetEntry.photoUrl.startsWith('images/')) {
+                                try {
+                                    const imgRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/${targetEntry.photoUrl}?ref=${encodeURIComponent(branch)}`);
+                                    if (imgRes.ok) {
+                                        const imgData = await imgRes.json();
+                                        await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/${targetEntry.photoUrl}`, {
+                                            method: 'DELETE',
+                                            body: JSON.stringify({
+                                                message: `Delete photo for entry ${id}`,
+                                                sha: imgData.sha,
+                                                branch: branch
+                                            })
+                                        });
+                                    }
+                                } catch(imgErr) {
+                                    console.warn('圖片清理略過 (不影響資料刪除):', imgErr);
+                                }
+                            }
+
+                            // 3. 移除該筆紀錄
+                            entries = entries.filter(x => String(x.id) !== String(id));
+
+                            const updatedJsonStr = JSON.stringify(entries, null, 2);
+                            const encodedJson = utf8ToBase64(updatedJsonStr);
+
+                            const putRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json`, {
+                                method: 'PUT',
+                                body: JSON.stringify({
+                                    message: `Delete entry ${id}`,
+                                    content: encodedJson,
+                                    sha: fileData.sha,
+                                    branch: branch
+                                })
+                            });
+
+                            if (!putRes.ok) {
+                                const errJson = await putRes.json().catch(() => ({}));
+                                throw new Error(errJson.message || `刪除提交失敗 (HTTP ${putRes.status})`);
+                            }
+
+                            await loadEntries();
+                        } catch (err) { 
+                            console.error(err);
+                            alert("刪除失敗：" + err.message); 
+                        } finally {
+                            document.getElementById('loadingOverlay').style.display = 'none';
+                        }
+                    }
+                });
+            });
+
+            // 編輯按鈕事件
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => startEditing(e.currentTarget.getAttribute('data-id')));
+            });
+
+            // 點擊卡片標籤快捷搜尋
+            document.querySelectorAll('#entriesFeed .tag').forEach(tagEl => {
+                tagEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const rawTag = tagEl.textContent.replace(/^#/, '').trim();
+                    applySearchTag(rawTag);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        }
+
+        function startEditing(id) {
+            const entry = entriesDataCache.find(e => String(e.id) === String(id));
+            if (!entry) {
+                alert('找不到該筆紀錄，請重新整理頁面');
+                return;
+            }
+            
+            editingId = String(id);
+            photoChanged = false;
+            textInput.value = entry.text || '';
+            tagsInput.value = (entry.tags || []).join(', ');
+            currentPhotoDataUrl = entry.photoUrl || null;
+
+            if (currentPhotoDataUrl) {
+                photoPreview.src = currentPhotoDataUrl;
+                photoPreview.classList.remove('hidden');
+                if (removePhotoBtn) removePhotoBtn.classList.remove('hidden');
+                fileNameDisplay.textContent = '已載入雲端照片 (若不更換則自動沿用)';
+            } else {
+                photoPreview.src = '';
+                photoPreview.classList.add('hidden');
+                if (removePhotoBtn) removePhotoBtn.classList.add('hidden');
+                fileNameDisplay.textContent = '點選上傳照片';
+            }
+
+            formTitle.textContent = '編輯紀錄';
+            submitBtn.textContent = '更新雲端紀錄';
+            cancelBtn.classList.remove('hidden');
+            updateSavedTagsUI();
+            
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+                if (textInput) textInput.focus();
+            }, 250);
+            
+            document.querySelectorAll('.entry-card').forEach(c => c.style.border = '1px solid var(--glass-border)');
+            const targetCard = document.getElementById(`entry-${id}`);
+            if (targetCard) targetCard.style.border = '2px solid var(--accent)';
+        }
+
+        function resetForm() {
+            editingId = null;
+            photoChanged = false;
+            form.reset();
+            currentPhotoDataUrl = null;
+            fileNameDisplay.textContent = '點選上傳照片';
+            photoPreview.src = '';
+            photoPreview.classList.add('hidden');
+            if (removePhotoBtn) removePhotoBtn.classList.add('hidden');
+            
+            formTitle.textContent = '新增紀錄';
+            submitBtn.textContent = '儲存同步至雲端';
+            cancelBtn.classList.add('hidden');
+            updateSavedTagsUI();
+            document.querySelectorAll('.entry-card').forEach(c => c.style.border = '1px solid var(--glass-border)');
+        }
+
+        cancelBtn.addEventListener('click', () => resetForm());
+
+        // 圖片智能壓縮 (針對手機高畫質最佳化)
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error("檔案讀取失敗"));
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error("圖片格式不支援，請選取 JPG 或 PNG 照片"));
+                    img.onload = () => {
+                        const maxDim = 1200; // 最長邊 1200px 高畫質
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+                        } else {
+                            if (height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                        resolve(dataUrl);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        photoInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileNameDisplay.textContent = "處理中...";
+                photoPreview.classList.add('hidden');
+                
+                try {
+                    currentPhotoDataUrl = await compressImage(file);
+                    photoChanged = true;
+                    photoPreview.src = currentPhotoDataUrl;
+                    photoPreview.classList.remove('hidden');
+                    if (removePhotoBtn) removePhotoBtn.classList.remove('hidden');
+                    fileNameDisplay.textContent = file.name + ' (已優化準備上傳)';
+                } catch(err) {
+                    console.error("圖片處理失敗", err);
+                    alert("這張圖片無法處理，請換一張");
+                }
+            } else {
+                if (!editingId) {
+                    currentPhotoDataUrl = null;
+                    fileNameDisplay.textContent = '點選上傳照片';
+                    photoPreview.src = '';
+                    photoPreview.classList.add('hidden');
+                    if (removePhotoBtn) removePhotoBtn.classList.add('hidden');
+                }
+            }
+        });
+
+        if (removePhotoBtn) {
+            removePhotoBtn.addEventListener('click', () => {
+                photoChanged = true;
+                currentPhotoDataUrl = null;
+                photoInput.value = '';
+                photoPreview.src = '';
+                photoPreview.classList.add('hidden');
+                removePhotoBtn.classList.add('hidden');
+                fileNameDisplay.textContent = '已移除相片 (儲存後將清除相片)';
+            });
+        }
+
+        // 表單送出 (新增 / 編輯)
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (isUploading) return;
+            
+            const cfg = getGitHubConfig();
+            if (!cfg.token || !cfg.owner || !cfg.repo) {
+                alert('請先點擊右上角 ⚙️ 設定 GitHub Token (PAT)，才能發布或修改紀錄！');
+                openSettingsModal();
+                return;
+            }
+
+            isUploading = true;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '上傳雲端中...';
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            loadingOverlay.style.display = 'flex';
+            loadingText.textContent = '正在同步資料至 GitHub...';
+
+            try {
+                const text = textInput.value.trim();
+                const tags = getTagsArray(tagsInput.value);
+                const targetId = editingId ? editingId : String(Date.now());
+                const branch = cfg.branch || 'main';
+
+                // 1. 照片上傳與路徑決定
+                let finalPhotoUrl = '';
+                if (editingId) {
+                    const existingEntry = entriesDataCache.find(x => String(x.id) === String(editingId));
+                    finalPhotoUrl = existingEntry ? (existingEntry.photoUrl || '') : '';
+                }
+
+                if (photoChanged) {
+                    if (currentPhotoDataUrl) {
+                        loadingText.textContent = '正在上傳實體相片至 GitHub...';
+                        const photoBase64 = currentPhotoDataUrl.replace(/^data:image\/[a-z]+;base64,/, '');
+                        const imgPath = `images/${targetId}.jpg`;
+
+                        // 檢查該圖檔是否已存在以帶入 sha
+                        let imgSha = null;
+                        try {
+                            const checkImgRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/${imgPath}?ref=${encodeURIComponent(branch)}`);
+                            if (checkImgRes.ok) {
+                                const imgInfo = await checkImgRes.json();
+                                imgSha = imgInfo.sha;
+                            }
+                        } catch(e) {}
+
+                        const uploadBody = {
+                            message: `Upload photo ${targetId}.jpg`,
+                            content: photoBase64,
+                            branch: branch
+                        };
+                        if (imgSha) uploadBody.sha = imgSha;
+
+                        const putImgRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/${imgPath}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(uploadBody)
+                        });
+
+                        if (!putImgRes.ok) {
+                            const errJson = await putImgRes.json().catch(() => ({}));
+                            throw new Error(`上傳照片失敗: ${errJson.message || putImgRes.status}`);
+                        }
+
+                        finalPhotoUrl = imgPath;
+                    } else {
+                        finalPhotoUrl = '';
+                    }
+                }
+
+                // 2. 更新 data.json
+                loadingText.textContent = '正在更新 data.json 紀錄...';
+                
+                let latestEntries = [];
+                let latestSha = currentDataSha;
+                const getRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(branch)}`);
+                if (getRes.ok) {
+                    const fileData = await getRes.json();
+                    latestSha = fileData.sha;
+                    try {
+                        latestEntries = JSON.parse(base64ToUtf8(fileData.content));
+                    } catch(e) {
+                        latestEntries = [];
+                    }
+                }
+
+                if (editingId) {
+                    const idx = latestEntries.findIndex(x => String(x.id) === String(editingId));
+                    if (idx !== -1) {
+                        latestEntries[idx].text = text;
+                        latestEntries[idx].tags = tags;
+                        latestEntries[idx].photoUrl = finalPhotoUrl;
+                        latestEntries[idx].updatedAt = new Date().toISOString();
+                    } else {
+                        latestEntries.unshift({
+                            id: targetId,
+                            createdAt: new Date().toISOString(),
+                            text: text,
+                            tags: tags,
+                            photoUrl: finalPhotoUrl
+                        });
+                    }
+                } else {
+                    latestEntries.unshift({
+                        id: targetId,
+                        createdAt: new Date().toISOString(),
+                        text: text,
+                        tags: tags,
+                        photoUrl: finalPhotoUrl
+                    });
+                }
+
+                const updatedJsonStr = JSON.stringify(latestEntries, null, 2);
+                const encodedJson = utf8ToBase64(updatedJsonStr);
+
+                const putDataBody = {
+                    message: `${editingId ? 'Update' : 'Add'} entry ${targetId}`,
+                    content: encodedJson,
+                    branch: branch
+                };
+                if (latestSha) putDataBody.sha = latestSha;
+
+                const putDataRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify(putDataBody)
+                });
+
+                if (!putDataRes.ok) {
+                    const errJson = await putDataRes.json().catch(() => ({}));
+                    throw new Error(`更新 data.json 失敗: ${errJson.message || putDataRes.status}`);
+                }
+
+                const putDataJson = await putDataRes.json();
+                currentDataSha = putDataJson.content ? putDataJson.content.sha : null;
+
+                resetForm();
+                await loadEntries();
+                document.querySelector('.app-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (err) {
+                console.error(err);
+                alert("上傳失敗: " + err.message);
+            } finally {
+                isUploading = false;
+                submitBtn.disabled = false;
+                submitBtn.textContent = editingId ? '更新雲端紀錄' : '儲存同步至雲端';
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // 搜尋事件
+        searchInput.addEventListener('input', (e) => {
+            renderEntries(e.target.value);
+            updateTopSearchTagsActiveState();
+        });
+
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // ==== GitHub 設定彈窗控制 ====
+        function openSettingsModal() {
+            const cfg = getGitHubConfig();
+            ghOwnerInput.value = cfg.owner || '';
+            ghRepoInput.value = cfg.repo || '';
+            ghBranchInput.value = cfg.branch || 'main';
+            ghTokenInput.value = cfg.token || '';
+            modalStatusMsg.className = 'status-msg';
+            modalStatusMsg.style.display = 'none';
+            settingsModal.classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            settingsModal.classList.add('hidden');
+        }
+
+        settingsBtn.addEventListener('click', openSettingsModal);
+        ghStatusBadge.addEventListener('click', openSettingsModal);
+        closeSettingsBtn.addEventListener('click', closeSettingsModal);
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeSettingsModal();
+        });
+
+        testConnBtn.addEventListener('click', async () => {
+            const owner = ghOwnerInput.value.trim();
+            const repo = ghRepoInput.value.trim();
+            const token = ghTokenInput.value.trim();
+
+            if (!owner || !repo) {
+                modalStatusMsg.className = 'status-msg error';
+                modalStatusMsg.textContent = '請填寫 GitHub 帳號與倉庫名稱！';
+                return;
+            }
+
+            modalStatusMsg.className = 'status-msg';
+            modalStatusMsg.style.display = 'block';
+            modalStatusMsg.style.background = 'rgba(59, 130, 246, 0.2)';
+            modalStatusMsg.style.color = '#93c5fd';
+            modalStatusMsg.textContent = '正在測試連線...';
+
+            try {
+                const headers = { 'Accept': 'application/vnd.github.v3+json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+                if (res.status === 200) {
+                    const data = await res.json();
+                    const canPush = data.permissions ? data.permissions.push : !!token;
+                    modalStatusMsg.className = 'status-msg success';
+                    modalStatusMsg.textContent = `連線成功！找到儲存庫「${data.full_name}」${canPush ? '（具備寫入權限）' : '（目前為唯讀）'}`;
+                } else if (res.status === 404) {
+                    modalStatusMsg.className = 'status-msg error';
+                    modalStatusMsg.textContent = '找不到此儲存庫，請確認帳號/倉庫名稱或 Token 是否具備私有倉庫權限。';
+                } else if (res.status === 401) {
+                    modalStatusMsg.className = 'status-msg error';
+                    modalStatusMsg.textContent = 'Token 無效或已過期，請重新檢查。';
+                } else {
+                    modalStatusMsg.className = 'status-msg error';
+                    modalStatusMsg.textContent = `連線失敗 (HTTP ${res.status})`;
+                }
+            } catch(err) {
+                modalStatusMsg.className = 'status-msg error';
+                modalStatusMsg.textContent = '連線出錯：' + err.message;
+            }
+        });
+
+        saveSettingsBtn.addEventListener('click', async () => {
+            const newCfg = {
+                owner: ghOwnerInput.value.trim(),
+                repo: ghRepoInput.value.trim(),
+                branch: ghBranchInput.value.trim() || 'main',
+                token: ghTokenInput.value.trim()
+            };
+            saveGitHubConfig(newCfg);
+            closeSettingsModal();
+            await loadEntries();
+        });
+
+        // 初始化
+        updateStatusBadge();
+        loadEntries();
+    </script>
+</body>
+</html>
