@@ -26,13 +26,11 @@
     "text": "肉球世界 鮪魚 魚油ok",
     "tags": [
       "肉球世界",
-      "魚油ok",
-      "喜歡"
+      "魚油ok"
     ],
     "photoUrl": "",
     "createdAt": "2026-09-16T03:35:55.302Z",
-    "timestamp": 1789623438775,
-    "updatedAt": "2026-09-24T07:50:16.781Z"
+    "timestamp": 1789623438775
   },
   {
     "id": "bf8km13Hnc0pk0iP54o7",
@@ -47,15 +45,14 @@
   },
   {
     "id": "id_1789082860418_cr8nk7vvc",
-    "text": "愛貓一生 雞肉/魚肉 吃不完",
+    "text": "愛貓一生 雞肉 吃不完",
     "tags": [
       "嫌",
       "愛貓一生"
     ],
     "photoUrl": "",
     "createdAt": "2026-09-10T23:27:40.418Z",
-    "timestamp": 1789082860419,
-    "updatedAt": "2026-09-24T07:56:35.547Z"
+    "timestamp": 1789082860419
   },
   {
     "id": "id_1787928425984_omr3clzcf",
@@ -104,13 +101,11 @@
     "id": "Qwpz7B2ZQwymEVrgjp33",
     "text": "貓有話說 烏骨雞+雞\n加魚油不行",
     "tags": [
-      "貓有話說",
-      "會吃但避免"
+      "貓有話說"
     ],
     "photoUrl": "images/Qwpz7B2ZQwymEVrgjp33.jpg",
     "createdAt": "2026-07-11T17:51:05.422Z",
-    "timestamp": 1783792265108,
-    "updatedAt": "2026-09-24T07:49:23.926Z"
+    "timestamp": 1783792265108
   },
   {
     "id": "0z5y9mc7tj5Mh4EBIt9G",
