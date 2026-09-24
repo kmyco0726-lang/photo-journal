@@ -491,18 +491,95 @@
             return new TextDecoder().decode(bytes);
         }
 
-        // ==== GitHub API 封裝呼叫 ====
+        // ==== GitHub API 封裝呼叫 (全域防快取與無狀態保證) ====
         async function githubRequest(endpoint, options = {}) {
             const cfg = getGitHubConfig();
-            const url = endpoint.startsWith('http') ? endpoint : `https://api.github.com${endpoint}`;
+            let url = endpoint.startsWith('http') ? endpoint : `https://api.github.com${endpoint}`;
+            
+            const method = (options.method || 'GET').toUpperCase();
+            if (method === 'GET') {
+                const sep = url.includes('?') ? '&' : '?';
+                url += `${sep}_t=${Date.now()}`;
+            }
+
             const headers = {
                 'Accept': 'application/vnd.github.v3+json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
                 ...(options.headers || {})
             };
             if (cfg.token) {
                 headers['Authorization'] = `Bearer ${cfg.token}`;
             }
-            return await fetch(url, { ...options, headers });
+            return await fetch(url, { cache: 'no-store', ...options, headers });
+        }
+
+        // ==== 原子化提交 data.json (自動偵測 SHA 衝突並重試) ====
+        async function commitDataJson(commitMessage, updateFn, maxRetries = 3) {
+            const cfg = getGitHubConfig();
+            const branch = cfg.branch || 'main';
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                // 1. 強制無快取抓取遠端最新 data.json 與即時 sha
+                const getRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(branch)}`);
+
+                let latestEntries = [];
+                let currentSha = null;
+
+                if (getRes.ok) {
+                    const fileData = await getRes.json();
+                    currentSha = fileData.sha;
+                    try {
+                        latestEntries = JSON.parse(base64ToUtf8(fileData.content));
+                    } catch (e) {
+                        latestEntries = [];
+                    }
+                } else if (getRes.status === 404) {
+                    currentSha = null;
+                    latestEntries = [];
+                } else {
+                    const errText = await getRes.text();
+                    throw new Error(`無法讀取遠端 data.json (HTTP ${getRes.status}): ${errText}`);
+                }
+
+                // 2. 執行資料變更回呼
+                const updatedEntries = updateFn([...latestEntries]);
+                const updatedJsonStr = JSON.stringify(updatedEntries, null, 2);
+                const encodedJson = utf8ToBase64(updatedJsonStr);
+
+                const putBody = {
+                    message: commitMessage,
+                    content: encodedJson,
+                    branch: branch
+                };
+                if (currentSha) {
+                    putBody.sha = currentSha;
+                }
+
+                // 3. 提交更新至 GitHub
+                const putRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify(putBody)
+                });
+
+                if (putRes.ok) {
+                    const putJson = await putRes.json();
+                    currentDataSha = putJson.content ? putJson.content.sha : null;
+                    return putJson;
+                }
+
+                const putErr = await putRes.json().catch(() => ({}));
+                const errMsg = putErr.message || `HTTP ${putRes.status}`;
+
+                // 4. 若回傳 409 Conflict 或 sha 不匹配，且還有重試次數，等待後自動重抓最新 sha 重試
+                if ((putRes.status === 409 || errMsg.includes('does not match')) && attempt < maxRetries) {
+                    console.warn(`[GitHub 同步] 檢測到 SHA 版本衝突，正在進行第 ${attempt} 次重試...`);
+                    await new Promise(r => setTimeout(r, 500));
+                    continue;
+                }
+
+                throw new Error(errMsg);
+            }
         }
 
         // ==== 從 GitHub 載入資料 ====
@@ -754,16 +831,8 @@
                             if (editingId && String(editingId) === String(id)) resetForm();
                             const branch = cfg.branch || 'main';
 
-                            // 1. 取得最新 data.json
-                            const getRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(branch)}`);
-                            if (!getRes.ok) {
-                                throw new Error('無法取得雲端 data.json (HTTP ' + getRes.status + ')');
-                            }
-                            const fileData = await getRes.json();
-                            let entries = JSON.parse(base64ToUtf8(fileData.content));
-                            
-                            // 2. 清理實體圖片 (若有)
-                            const targetEntry = entries.find(x => String(x.id) === String(id));
+                            // 1. 清理實體圖片 (若有)
+                            const targetEntry = entriesDataCache.find(x => String(x.id) === String(id));
                             if (targetEntry && targetEntry.photoUrl && targetEntry.photoUrl.startsWith('images/')) {
                                 try {
                                     const imgRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/${targetEntry.photoUrl}?ref=${encodeURIComponent(branch)}`);
@@ -783,26 +852,10 @@
                                 }
                             }
 
-                            // 3. 移除該筆紀錄
-                            entries = entries.filter(x => String(x.id) !== String(id));
-
-                            const updatedJsonStr = JSON.stringify(entries, null, 2);
-                            const encodedJson = utf8ToBase64(updatedJsonStr);
-
-                            const putRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json`, {
-                                method: 'PUT',
-                                body: JSON.stringify({
-                                    message: `Delete entry ${id}`,
-                                    content: encodedJson,
-                                    sha: fileData.sha,
-                                    branch: branch
-                                })
+                            // 2. 透過原子化 commitDataJson 刪除紀錄 (自動重試防止衝突)
+                            await commitDataJson(`Delete entry ${id}`, (currentList) => {
+                                return currentList.filter(x => String(x.id) !== String(id));
                             });
-
-                            if (!putRes.ok) {
-                                const errJson = await putRes.json().catch(() => ({}));
-                                throw new Error(errJson.message || `刪除提交失敗 (HTTP ${putRes.status})`);
-                            }
 
                             await loadEntries();
                         } catch (err) { 
@@ -1036,29 +1089,27 @@
                     }
                 }
 
-                // 2. 更新 data.json
+                // 2. 透過原子化 commitDataJson 更新 data.json 紀錄 (自動解決 SHA 衝突)
                 loadingText.textContent = '正在更新 data.json 紀錄...';
                 
-                let latestEntries = [];
-                let latestSha = currentDataSha;
-                const getRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(branch)}`);
-                if (getRes.ok) {
-                    const fileData = await getRes.json();
-                    latestSha = fileData.sha;
-                    try {
-                        latestEntries = JSON.parse(base64ToUtf8(fileData.content));
-                    } catch(e) {
-                        latestEntries = [];
-                    }
-                }
-
-                if (editingId) {
-                    const idx = latestEntries.findIndex(x => String(x.id) === String(editingId));
-                    if (idx !== -1) {
-                        latestEntries[idx].text = text;
-                        latestEntries[idx].tags = tags;
-                        latestEntries[idx].photoUrl = finalPhotoUrl;
-                        latestEntries[idx].updatedAt = new Date().toISOString();
+                const commitMsg = editingId ? `Update entry ${editingId}` : `Add entry ${targetId}`;
+                await commitDataJson(commitMsg, (latestEntries) => {
+                    if (editingId) {
+                        const idx = latestEntries.findIndex(x => String(x.id) === String(editingId));
+                        if (idx !== -1) {
+                            latestEntries[idx].text = text;
+                            latestEntries[idx].tags = tags;
+                            latestEntries[idx].photoUrl = finalPhotoUrl;
+                            latestEntries[idx].updatedAt = new Date().toISOString();
+                        } else {
+                            latestEntries.unshift({
+                                id: targetId,
+                                createdAt: new Date().toISOString(),
+                                text: text,
+                                tags: tags,
+                                photoUrl: finalPhotoUrl
+                            });
+                        }
                     } else {
                         latestEntries.unshift({
                             id: targetId,
@@ -1068,38 +1119,8 @@
                             photoUrl: finalPhotoUrl
                         });
                     }
-                } else {
-                    latestEntries.unshift({
-                        id: targetId,
-                        createdAt: new Date().toISOString(),
-                        text: text,
-                        tags: tags,
-                        photoUrl: finalPhotoUrl
-                    });
-                }
-
-                const updatedJsonStr = JSON.stringify(latestEntries, null, 2);
-                const encodedJson = utf8ToBase64(updatedJsonStr);
-
-                const putDataBody = {
-                    message: `${editingId ? 'Update' : 'Add'} entry ${targetId}`,
-                    content: encodedJson,
-                    branch: branch
-                };
-                if (latestSha) putDataBody.sha = latestSha;
-
-                const putDataRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json`, {
-                    method: 'PUT',
-                    body: JSON.stringify(putDataBody)
+                    return latestEntries;
                 });
-
-                if (!putDataRes.ok) {
-                    const errJson = await putDataRes.json().catch(() => ({}));
-                    throw new Error(`更新 data.json 失敗: ${errJson.message || putDataRes.status}`);
-                }
-
-                const putDataJson = await putDataRes.json();
-                currentDataSha = putDataJson.content ? putDataJson.content.sha : null;
 
                 resetForm();
                 await loadEntries();
