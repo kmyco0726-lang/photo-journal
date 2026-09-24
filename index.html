@@ -491,27 +491,26 @@
             return new TextDecoder().decode(bytes);
         }
 
-        // ==== GitHub API 封裝呼叫 (全域防快取與無狀態保證) ====
+        // ==== GitHub API 封裝呼叫 (完全相容 CORS，使用 URL 時間戳記防快取) ====
         async function githubRequest(endpoint, options = {}) {
             const cfg = getGitHubConfig();
             let url = endpoint.startsWith('http') ? endpoint : `https://api.github.com${endpoint}`;
             
-            const method = (options.method || 'GET').toUpperCase();
-            if (method === 'GET') {
-                const sep = url.includes('?') ? '&' : '?';
-                url += `${sep}_t=${Date.now()}`;
-            }
+            // 透過 URL 時間戳記防止瀏覽器快取，不自訂 Cache-Control 標頭以符合 GitHub API CORS 規範
+            const sep = url.includes('?') ? '&' : '?';
+            url += `${sep}_t=${Date.now()}`;
 
             const headers = {
                 'Accept': 'application/vnd.github.v3+json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
                 ...(options.headers || {})
             };
             if (cfg.token) {
                 headers['Authorization'] = `Bearer ${cfg.token}`;
             }
-            return await fetch(url, { cache: 'no-store', ...options, headers });
+            if (options.body && !headers['Content-Type']) {
+                headers['Content-Type'] = 'application/json';
+            }
+            return await fetch(url, { ...options, headers });
         }
 
         // ==== 原子化提交 data.json (自動偵測 SHA 衝突並重試) ====
