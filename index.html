@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- 離線與本機直接開啟 (file://) 的資料快照備援 -->
+    <script src="data.js"></script>
     <style>
         :root {
             --bg-dark: #0f172a; --bg-panel: rgba(30, 41, 59, 0.7);
@@ -90,11 +92,17 @@
         }
         textarea:focus, input[type="text"]#tagsInput:focus { border-color: var(--accent); }
 
-        .file-input-group { display: flex; flex-direction: column; gap: 8px; }
+        .file-input-group { display: flex; flex-direction: column; gap: 8px; position: relative; }
         .file-label {
             display: flex; align-items: center; justify-content: center; gap: 10px;
             padding: 12px; border: 2px dashed rgba(148, 163, 184, 0.4); border-radius: 10px;
             cursor: pointer; transition: all 0.3s ease; background: rgba(15, 23, 42, 0.4);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .file-input-hidden {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; opacity: 0;
+            pointer-events: none;
         }
         .file-label:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
         .upload-icon { font-size: 1.3rem; }
@@ -132,6 +140,53 @@
         .saved-tag:hover { background: rgba(59, 130, 246, 0.2); color: white; }
         .saved-tag.active { background: var(--accent); color: white; border-color: #60a5fa; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3); }
 
+        /* 必選喜好快捷標籤 */
+        .required-tags-group { margin-bottom: 14px; }
+        .required-tags-label {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.85rem; color: #cbd5e1; margin-bottom: 8px; font-weight: 600;
+        }
+        .required-badge {
+            font-size: 0.75rem; color: #f87171; background: rgba(239, 68, 68, 0.15);
+            padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .required-tags-container {
+            display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 10px;
+        }
+        .required-tag-btn {
+            background: rgba(15, 23, 42, 0.6); border: 1.5px solid var(--glass-border);
+            color: #94a3b8; padding: 10px 6px; border-radius: 10px; font-size: 0.95rem;
+            font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+            text-align: center; user-select: none;
+        }
+        .required-tag-btn:hover { border-color: rgba(148, 163, 184, 0.5); color: white; }
+        /* 喜歡 - 綠色系 */
+        .required-tag-btn[data-value="喜歡"].active {
+            background: rgba(16, 185, 129, 0.25); border-color: #34d399; color: #6ee7b7;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+        }
+        /* 會吃但避免 - 橙黃色系 */
+        .required-tag-btn[data-value="會吃但避免"].active {
+            background: rgba(245, 158, 11, 0.25); border-color: #fbbf24; color: #fcd34d;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+        }
+        /* 嫌 - 紅色系 */
+        .required-tag-btn[data-value="嫌"].active {
+            background: rgba(239, 68, 68, 0.25); border-color: #f87171; color: #fca5a5;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+        }
+        .required-tags-container.has-error {
+            animation: shake 0.4s ease;
+        }
+        .required-tags-container.has-error .required-tag-btn {
+            border-color: rgba(239, 68, 68, 0.8);
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
         .entries-grid { display: flex; flex-direction: column; gap: 20px; }
         .entry-card { overflow: hidden; animation: fadeInUp 0.5s ease backwards; transition: transform 0.3s ease; }
         .entry-photo { width: 100%; max-height: 350px; object-fit: cover; background-color: #000; display: block; }
@@ -140,6 +195,9 @@
         .entry-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
         .tag { background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
         .tag:hover { background: rgba(59, 130, 246, 0.4); color: white; }
+        .tag.tag-like { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.35); }
+        .tag.tag-avoid { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.35); }
+        .tag.tag-dislike { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
         .entry-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; border-top: 1px solid var(--glass-border); padding-top: 12px; }
         .timestamp { color: var(--text-secondary); }
         .action-buttons { display: flex; gap: 8px; }
@@ -309,11 +367,11 @@
                 <h2 id="formTitle">新增紀錄</h2>
                 <form id="entryForm">
                     <div class="input-group file-input-group">
-                        <label for="photoInput" class="file-label">
+                        <label for="photoInput" class="file-label" id="fileLabel">
                             <span class="upload-icon">📷</span>
                             <span id="fileName">點選上傳照片 (點擊可更換)</span>
                         </label>
-                        <input type="file" id="photoInput" accept="image/*" hidden>
+                        <input type="file" id="photoInput" class="file-input-hidden" accept="image/*">
                         <img id="photoPreview" class="hidden" alt="預覽照片">
                         <button type="button" id="removePhotoBtn" class="btn-remove-photo hidden">✕ 移除相片</button>
                     </div>
@@ -322,12 +380,24 @@
                         <textarea id="textInput" placeholder="這張照片的故事是..." rows="3" required></textarea>
                     </div>
 
+                    <div class="input-group required-tags-group">
+                        <div class="required-tags-label">
+                            <span>評價分類</span>
+                            <span class="required-badge">*必選一個才可上傳</span>
+                        </div>
+                        <div class="required-tags-container" id="requiredTagsContainer">
+                            <button type="button" class="required-tag-btn" data-value="喜歡">💚 喜歡</button>
+                            <button type="button" class="required-tag-btn" data-value="會吃但避免">⚠️ 會吃但避免</button>
+                            <button type="button" class="required-tag-btn" data-value="嫌">🚫 嫌</button>
+                        </div>
+                    </div>
+
                     <div class="input-group">
                         <div id="savedTagsArea" class="hidden">
                             <div class="saved-tags-title">歷史標籤 (雲端同步)</div>
                             <div id="savedTagsList" class="saved-tags-list"></div>
                         </div>
-                        <input type="text" id="tagsInput" placeholder="輸入標籤 (用逗號分隔，如：美食, 旅遊)">
+                        <input type="text" id="tagsInput" placeholder="輸入其他標籤 (逗號分隔，如：拉麵, 晚餐)">
                     </div>
 
                     <div class="form-actions">
@@ -414,6 +484,31 @@
         const submitBtn = document.getElementById('submitBtn');
         const cancelBtn = document.getElementById('cancelBtn');
 
+        // 必選評價快捷標籤 (喜歡 / 會吃但避免 / 嫌)
+        const REQUIRED_TAG_OPTIONS = ['喜歡', '會吃但避免', '嫌'];
+        let selectedRequiredTag = null;
+        const requiredTagBtns = document.querySelectorAll('.required-tag-btn');
+        const requiredTagsContainer = document.getElementById('requiredTagsContainer');
+
+        requiredTagBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.getAttribute('data-value');
+                selectedRequiredTag = val;
+                updateRequiredTagsUI();
+            });
+        });
+
+        function updateRequiredTagsUI() {
+            requiredTagBtns.forEach(btn => {
+                if (btn.getAttribute('data-value') === selectedRequiredTag) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            if (requiredTagsContainer) requiredTagsContainer.classList.remove('has-error');
+        }
+
         // Modal 元素
         const settingsModal = document.getElementById('settingsModal');
         const settingsBtn = document.getElementById('settingsBtn');
@@ -491,21 +586,23 @@
             return new TextDecoder().decode(bytes);
         }
 
-        // ==== GitHub API 封裝呼叫 (完全相容 CORS，使用 URL 時間戳記防快取) ====
+        // ==== GitHub API 封裝呼叫 (完全相容 CORS，僅在 GET 請求加上 URL 時間戳記防快取) ====
         async function githubRequest(endpoint, options = {}) {
             const cfg = getGitHubConfig();
             let url = endpoint.startsWith('http') ? endpoint : `https://api.github.com${endpoint}`;
             
-            // 透過 URL 時間戳記防止瀏覽器快取，不自訂 Cache-Control 標頭以符合 GitHub API CORS 規範
-            const sep = url.includes('?') ? '&' : '?';
-            url += `${sep}_t=${Date.now()}`;
+            const method = (options.method || 'GET').toUpperCase();
+            if (method === 'GET') {
+                const sep = url.includes('?') ? '&' : '?';
+                url += `${sep}_t=${Date.now()}`;
+            }
 
             const headers = {
                 'Accept': 'application/vnd.github.v3+json',
                 ...(options.headers || {})
             };
             if (cfg.token) {
-                headers['Authorization'] = `Bearer ${cfg.token}`;
+                headers['Authorization'] = `Bearer ${cfg.token.trim()}`;
             }
             if (options.body && !headers['Content-Type']) {
                 headers['Content-Type'] = 'application/json';
@@ -581,18 +678,18 @@
             }
         }
 
-        // ==== 從 GitHub 載入資料 ====
+        // ==== 從 GitHub 載入資料 (四重備援：API ➔ Raw GitHub ➔ 靜態 JSON ➔ 本地快照) ====
         async function loadEntries() {
             const overlay = document.getElementById('loadingOverlay');
             const loadingText = document.getElementById('loadingText');
             overlay.style.display = 'flex';
-            loadingText.textContent = '正在與雲端同步...';
+            loadingText.textContent = '正在載入相片日誌...';
             
             const cfg = getGitHubConfig();
             let loadedData = null;
 
-            // 1. 若有 Token 與儲存庫設定，優先透過 GitHub API 取得最新內容與 sha (零延遲)
-            if (cfg.token && cfg.owner && cfg.repo) {
+            // 1. 若有設定 owner 與 repo (不管有無 Token，公開倉庫皆可透過 API 讀取)
+            if (cfg.owner && cfg.repo) {
                 try {
                     const apiRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(cfg.branch || 'main')}`);
                     if (apiRes.ok) {
@@ -605,19 +702,40 @@
                         loadedData = [];
                     }
                 } catch(err) {
-                    console.warn('GitHub API 載入失敗，轉為嘗試本地/靜態 data.json:', err);
+                    console.warn('GitHub API 讀取失敗，嘗試備援管道:', err);
+                }
+
+                // 2. 若 API 未能取得 (如未認證 Rate Limit)，嘗試直接抓取 raw.githubusercontent.com
+                if (!loadedData && loadedData !== []) {
+                    try {
+                        const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch || 'main'}/data.json?_t=${Date.now()}`;
+                        const rawRes = await fetch(rawUrl);
+                        if (rawRes.ok) {
+                            loadedData = await rawRes.json();
+                        }
+                    } catch(err) {
+                        console.warn('GitHub Raw URL 讀取失敗:', err);
+                    }
                 }
             }
 
-            // 2. 若 API 未取得，fallback 到直接讀取靜態 data.json (不耗費 API Rate Limit)
-            if (!loadedData) {
+            // 3. 嘗試讀取同源的靜態 data.json (適用於 GitHub Pages 託管或本地 http 伺服器)
+            if (!loadedData || (Array.isArray(loadedData) && loadedData.length === 0 && !cfg.owner)) {
                 try {
                     const res = await fetch('data.json?t=' + Date.now());
                     if (res.ok) {
                         loadedData = await res.json();
                     }
                 } catch(err) {
-                    console.warn('靜態 data.json 讀取失敗:', err);
+                    console.warn('靜態 data.json 讀取失敗 (本地 file:// 協議通常會被瀏覽器安全政策阻擋):', err);
+                }
+            }
+
+            // 4. 終極本地/離線備援：若上述所有網路請求皆因 file:// 協議阻擋或離線失敗，使用 data.js 載入的初始資料
+            if (!loadedData || (Array.isArray(loadedData) && loadedData.length === 0)) {
+                if (window.LOCAL_INITIAL_DATA && Array.isArray(window.LOCAL_INITIAL_DATA) && window.LOCAL_INITIAL_DATA.length > 0) {
+                    console.log('📦 啟用本機離線快照資料 (共 ' + window.LOCAL_INITIAL_DATA.length + ' 筆)');
+                    loadedData = [...window.LOCAL_INITIAL_DATA];
                 }
             }
 
@@ -637,15 +755,17 @@
         }
 
         function updateSavedTagsUI() {
-            if (allKnownTags.size === 0) {
+            const currentTags = getTagsArray(tagsInput.value);
+            const filteredTags = Array.from(allKnownTags).sort().filter(t => !REQUIRED_TAG_OPTIONS.includes(t));
+
+            if (filteredTags.length === 0) {
                 savedTagsArea.classList.add('hidden');
                 return;
             }
             savedTagsArea.classList.remove('hidden');
             savedTagsList.innerHTML = '';
             
-            const currentTags = getTagsArray(tagsInput.value);
-            Array.from(allKnownTags).sort().forEach(tag => {
+            filteredTags.forEach(tag => {
                 const el = document.createElement('div');
                 el.className = 'saved-tag';
                 if (currentTags.includes(tag)) el.classList.add('active');
@@ -715,7 +835,17 @@
             allBtn.addEventListener('click', () => applySearchTag(''));
             searchTagsContainer.appendChild(allBtn);
 
-            Array.from(allKnownTags).sort((a, b) => a.localeCompare(b, 'zh-TW')).forEach(tag => {
+            // 優先排序：喜歡 ➔ 會吃但避免 ➔ 嫌 ➔ 其餘依字母/筆畫
+            const sortedTags = Array.from(allKnownTags).sort((a, b) => {
+                const aIdx = REQUIRED_TAG_OPTIONS.indexOf(a);
+                const bIdx = REQUIRED_TAG_OPTIONS.indexOf(b);
+                if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+                if (aIdx !== -1) return -1;
+                if (bIdx !== -1) return 1;
+                return a.localeCompare(b, 'zh-TW');
+            });
+
+            sortedTags.forEach(tag => {
                 const chip = document.createElement('button');
                 chip.type = 'button';
                 chip.className = 'search-tag-chip';
@@ -779,7 +909,13 @@
                 }
                 
                 const tagsArr = entry.tags || [];
-                const tagsHtml = tagsArr.map(tag => `<span class="tag">#${tag}</span>`).join('');
+                const tagsHtml = tagsArr.map(tag => {
+                    let cls = 'tag';
+                    if (tag === '喜歡') cls += ' tag-like';
+                    else if (tag === '會吃但避免') cls += ' tag-avoid';
+                    else if (tag === '嫌') cls += ' tag-dislike';
+                    return `<span class="${cls}">#${tag}</span>`;
+                }).join('');
                 
                 // 圖片路徑與 Fallback 機制
                 let photoHtml = '';
@@ -893,7 +1029,15 @@
             editingId = String(id);
             photoChanged = false;
             textInput.value = entry.text || '';
-            tagsInput.value = (entry.tags || []).join(', ');
+
+            // 辨識既有紀錄中是否有「喜歡 / 會吃但避免 / 嫌」
+            const entryTags = entry.tags || [];
+            selectedRequiredTag = REQUIRED_TAG_OPTIONS.find(t => entryTags.includes(t)) || null;
+            updateRequiredTagsUI();
+
+            // 其餘標籤填入自訂標籤欄位
+            const customTags = entryTags.filter(t => !REQUIRED_TAG_OPTIONS.includes(t));
+            tagsInput.value = customTags.join(', ');
             currentPhotoDataUrl = entry.photoUrl || null;
 
             if (currentPhotoDataUrl) {
@@ -928,6 +1072,8 @@
             photoChanged = false;
             form.reset();
             currentPhotoDataUrl = null;
+            selectedRequiredTag = null;
+            updateRequiredTagsUI();
             fileNameDisplay.textContent = '點選上傳照片';
             photoPreview.src = '';
             photoPreview.classList.add('hidden');
@@ -942,15 +1088,17 @@
 
         cancelBtn.addEventListener('click', () => resetForm());
 
-        // 圖片智能壓縮 (針對手機高畫質最佳化)
+        // 圖片智能壓縮 (針對手機高畫質最佳化，使用 ObjectURL 避免記憶體溢位)
         function compressImage(file) {
             return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onerror = () => reject(new Error("檔案讀取失敗"));
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onerror = () => reject(new Error("圖片格式不支援，請選取 JPG 或 PNG 照片"));
-                    img.onload = () => {
+                const objectUrl = URL.createObjectURL(file);
+                const img = new Image();
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error("圖片格式不支援或檔案損毀，請選取 JPG、PNG 或 WebP 照片"));
+                };
+                img.onload = () => {
+                    try {
                         const maxDim = 1200; // 最長邊 1200px 高畫質
                         let width = img.width;
                         let height = img.height;
@@ -968,18 +1116,29 @@
                         ctx.drawImage(img, 0, 0, width, height);
 
                         const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                        URL.revokeObjectURL(objectUrl);
                         resolve(dataUrl);
-                    };
-                    img.src = e.target.result;
+                    } catch (err) {
+                        URL.revokeObjectURL(objectUrl);
+                        reject(err);
+                    }
                 };
-                reader.readAsDataURL(file);
+                img.src = objectUrl;
+            });
+        }
+
+        const fileLabel = document.getElementById('fileLabel');
+        if (fileLabel) {
+            fileLabel.addEventListener('click', () => {
+                // 重設 value 確保選取同一張相片仍能觸發 change
+                photoInput.value = '';
             });
         }
 
         photoInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
+            const file = e.target.files && e.target.files[0];
             if (file) {
-                fileNameDisplay.textContent = "處理中...";
+                fileNameDisplay.textContent = "圖片處理壓縮中...";
                 photoPreview.classList.add('hidden');
                 
                 try {
@@ -991,7 +1150,8 @@
                     fileNameDisplay.textContent = file.name + ' (已優化準備上傳)';
                 } catch(err) {
                     console.error("圖片處理失敗", err);
-                    alert("這張圖片無法處理，請換一張");
+                    alert("這張圖片無法處理：" + (err.message || "格式不支援，請換一張"));
+                    fileNameDisplay.textContent = '點選上傳照片';
                 }
             } else {
                 if (!editingId) {
@@ -1019,8 +1179,16 @@
         // 表單送出 (新增 / 編輯)
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (isUploading) return;
-            
+            // 檢查必選評價快捷標籤 (喜歡 / 會吃但避免 / 嫌)
+            if (!selectedRequiredTag) {
+                if (requiredTagsContainer) {
+                    requiredTagsContainer.classList.add('has-error');
+                    requiredTagsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                alert('「喜歡」、「會吃但避免」、「嫌」這 3 個快捷標籤，一定要選一個才可以上傳！');
+                return;
+            }
+
             const cfg = getGitHubConfig();
             if (!cfg.token || !cfg.owner || !cfg.repo) {
                 alert('請先點擊右上角 ⚙️ 設定 GitHub Token (PAT)，才能發布或修改紀錄！');
@@ -1038,7 +1206,8 @@
 
             try {
                 const text = textInput.value.trim();
-                const tags = getTagsArray(tagsInput.value);
+                const customTags = getTagsArray(tagsInput.value).filter(t => !REQUIRED_TAG_OPTIONS.includes(t));
+                const tags = [selectedRequiredTag, ...customTags];
                 const targetId = editingId ? editingId : String(Date.now());
                 const branch = cfg.branch || 'main';
 
@@ -1052,7 +1221,9 @@
                 if (photoChanged) {
                     if (currentPhotoDataUrl) {
                         loadingText.textContent = '正在上傳實體相片至 GitHub...';
-                        const photoBase64 = currentPhotoDataUrl.replace(/^data:image\/[a-z]+;base64,/, '');
+                        const photoBase64 = currentPhotoDataUrl.includes(',') 
+                            ? currentPhotoDataUrl.split(',')[1] 
+                            : currentPhotoDataUrl;
                         const imgPath = `images/${targetId}.jpg`;
 
                         // 檢查該圖檔是否已存在以帶入 sha
