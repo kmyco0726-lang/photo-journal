@@ -540,6 +540,10 @@
                     cfg.repo = pathParts[0];
                 }
             }
+            if (cfg.owner) cfg.owner = cfg.owner.trim();
+            if (cfg.repo) cfg.repo = cfg.repo.trim();
+            if (cfg.branch) cfg.branch = cfg.branch.trim();
+            if (cfg.token) cfg.token = cfg.token.trim();
             return cfg;
         }
 
@@ -1221,9 +1225,9 @@
                 if (photoChanged) {
                     if (currentPhotoDataUrl) {
                         loadingText.textContent = '正在上傳實體相片至 GitHub...';
-                        const photoBase64 = currentPhotoDataUrl.includes(',') 
+                        const photoBase64 = (currentPhotoDataUrl.includes(',') 
                             ? currentPhotoDataUrl.split(',')[1] 
-                            : currentPhotoDataUrl;
+                            : currentPhotoDataUrl).replace(/\s/g, '');
                         const imgPath = `images/${targetId}.jpg`;
 
                         // 檢查該圖檔是否已存在以帶入 sha
@@ -1249,8 +1253,25 @@
                         });
 
                         if (!putImgRes.ok) {
-                            const errJson = await putImgRes.json().catch(() => ({}));
-                            throw new Error(`上傳照片失敗: ${errJson.message || putImgRes.status}`);
+                            const rawErr = await putImgRes.text().catch(() => '');
+                            let ghMsg = rawErr;
+                            try {
+                                const errJson = JSON.parse(rawErr);
+                                ghMsg = errJson.message || rawErr;
+                            } catch(e) {}
+                            
+                            let hint = '';
+                            if (putImgRes.status === 401) {
+                                hint = '\n\n👉 解決方式：Token 無效或已過期，請點擊右上角 ⚙️ 重新輸入有效 Token。';
+                            } else if (putImgRes.status === 403) {
+                                hint = '\n\n👉 解決方式：Token 權限不足！若為 Classic Token 請務必勾選「repo」完整權限；若為 Fine-grained Token 請至 Permissions ➔ Repository 將「Contents」權限改為「Read and write」。';
+                            } else if (putImgRes.status === 404) {
+                                hint = `\n\n👉 解決方式：找不到分支「${branch}」或儲存庫「${cfg.owner}/${cfg.repo}」。若倉庫預設分支是 master，請至右上角 ⚙️ 將分支改為 master。`;
+                            } else if (putImgRes.status === 422) {
+                                hint = `\n\n👉 解決方式：分支名稱或請求內容不符合規範，請確認分支「${branch}」是否確實存在於儲存庫中。`;
+                            }
+                            
+                            throw new Error(`上傳照片失敗 (HTTP ${putImgRes.status}: ${ghMsg})${hint}`);
                         }
 
                         finalPhotoUrl = imgPath;
