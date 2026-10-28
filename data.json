@@ -222,14 +222,15 @@
   },
   {
     "id": "6f4bWFfEIVncygUkpWy9",
-    "text": "貓食貓事 鮮牛精肉泥 活力雞健康\n尚未加魚油測試",
+    "text": "貓食貓事 鮮牛精肉泥 活力雞健康\n魚油 no",
     "tags": [
-      "貓食貓事",
-      "喜歡"
+      "嫌",
+      "貓食貓事"
     ],
     "photoUrl": "images/6f4bWFfEIVncygUkpWy9.jpg",
     "createdAt": "2026-07-09T06:55:56.167Z",
-    "timestamp": 1783580179930
+    "timestamp": 1783580179930,
+    "updatedAt": "2026-10-28T15:39:32.261Z"
   },
   {
     "id": "MGbic53b4yUqnT7FGL27",
