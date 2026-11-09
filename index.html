@@ -694,31 +694,47 @@
 
             // 1. 若有設定 owner 與 repo (不管有無 Token，公開倉庫皆可透過 API 讀取)
             if (cfg.owner && cfg.repo) {
+                const targetBranch = cfg.branch || 'master';
                 try {
-                    const apiRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(cfg.branch || 'main')}`);
+                    let apiRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(targetBranch)}`);
+                    
+                    // 若當前分支 404，自動智慧偵測替換 main / master 分支
+                    if (apiRes.status === 404) {
+                        const fallbackBranch = targetBranch === 'main' ? 'master' : 'main';
+                        const fallbackRes = await githubRequest(`/repos/${cfg.owner}/${cfg.repo}/contents/data.json?ref=${encodeURIComponent(fallbackBranch)}`);
+                        if (fallbackRes.ok) {
+                            apiRes = fallbackRes;
+                            cfg.branch = fallbackBranch;
+                            saveGitHubConfig(cfg);
+                        }
+                    }
+
                     if (apiRes.ok) {
                         const fileInfo = await apiRes.json();
                         currentDataSha = fileInfo.sha;
                         const jsonText = base64ToUtf8(fileInfo.content);
                         loadedData = JSON.parse(jsonText);
-                    } else if (apiRes.status === 404) {
-                        currentDataSha = null;
-                        loadedData = [];
                     }
                 } catch(err) {
                     console.warn('GitHub API 讀取失敗，嘗試備援管道:', err);
                 }
 
                 // 2. 若 API 未能取得 (如未認證 Rate Limit)，嘗試直接抓取 raw.githubusercontent.com
-                if (!loadedData && loadedData !== []) {
-                    try {
-                        const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch || 'main'}/data.json?_t=${Date.now()}`;
-                        const rawRes = await fetch(rawUrl);
-                        if (rawRes.ok) {
-                            loadedData = await rawRes.json();
-                        }
-                    } catch(err) {
-                        console.warn('GitHub Raw URL 讀取失敗:', err);
+                if (!Array.isArray(loadedData) || loadedData.length === 0) {
+                    const branchesToTry = [cfg.branch || 'master', 'master', 'main'];
+                    for (const b of [...new Set(branchesToTry)]) {
+                        try {
+                            const rawUrl = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${b}/data.json?_t=${Date.now()}`;
+                            const rawRes = await fetch(rawUrl);
+                            if (rawRes.ok) {
+                                loadedData = await rawRes.json();
+                                if (Array.isArray(loadedData) && loadedData.length > 0) {
+                                    cfg.branch = b;
+                                    saveGitHubConfig(cfg);
+                                    break;
+                                }
+                            }
+                        } catch(err) {}
                     }
                 }
             }
@@ -1383,9 +1399,12 @@
                 const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
                 if (res.status === 200) {
                     const data = await res.json();
+                    if (data.default_branch && (!ghBranchInput.value || ghBranchInput.value === 'main')) {
+                        ghBranchInput.value = data.default_branch;
+                    }
                     const canPush = data.permissions ? data.permissions.push : !!token;
                     modalStatusMsg.className = 'status-msg success';
-                    modalStatusMsg.textContent = `連線成功！找到儲存庫「${data.full_name}」${canPush ? '（具備寫入權限）' : '（目前為唯讀）'}`;
+                    modalStatusMsg.textContent = `連線成功！找到儲存庫「${data.full_name}」（預設分支：${data.default_branch}）${canPush ? '（具備寫入權限）' : '（目前為唯讀）'}`;
                 } else if (res.status === 404) {
                     modalStatusMsg.className = 'status-msg error';
                     modalStatusMsg.textContent = '找不到此儲存庫，請確認帳號/倉庫名稱或 Token 是否具備私有倉庫權限。';
